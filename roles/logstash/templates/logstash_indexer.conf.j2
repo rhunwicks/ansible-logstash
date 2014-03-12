@@ -1,0 +1,135 @@
+input {
+
+    redis {
+        host => "127.0.0.1"
+        type => "redis-input"
+        data_type => "list"
+        key => "logstash"
+        # We use json here since the sender is a logstash agent
+        codec => "json"
+    }
+
+    file {
+        type => "syslog"
+        path => [ "/var/log/*log", "/var/log/**/*log", "/var/log/syslog", "/var/log/messages", "/var/log/secure" ]
+        sincedb_path => "/var/lib/logstash"
+    }
+}
+
+filter {
+
+    # Rename the `file` field supplied by beaver to `path` to match the Logstash
+    # file input above
+    if "beaver" in [tags] {
+        mutate {
+            rename => [ "file", "path" ]
+        }
+    }
+
+    # Identify file types from the file name, regardless of input
+    if [path] in [ "/var/log/redis/redis.log", "/var/log/redis/redis-server.log" ] {
+        mutate {
+            replace => [ "type", "redis" ]
+        }
+    }
+    if [path] in [ "/var/log/supervisor/supervisord.log" ] {
+        mutate {
+            replace => [ "type", "supervisord" ]
+        }
+    }
+    if [path] in [ "/var/log/apache2/other_vhosts_access.log" ] {
+        mutate {
+            replace => [ "type", "apache-access" ]
+        }
+    }
+
+    # Convert syslog messages, replacing various fields
+    # An example message is "Mar 11 15:32:35 gateway openvpn(strongvpn_us)[2185]: TLS: Initial packet from 216.169.143.38:4672, sid=b746c31d c782358f"
+    if [type] == "syslog" {
+        grok {
+            overwrite => [ "message", "host" ]
+            match => {
+                "message" => "^(?:<%{POSINT:syslog_pri}>)?%{SYSLOGTIMESTAMP:timestamp} %{IPORHOST:host} (?:%{PROG:program}(?:\[%{POSINT:pid}\])?: )?%{GREEDYDATA:message}"
+            }
+        }
+        syslog_pri { }
+        date {
+            # season to taste for your own syslog format(s)
+            match => [ "timestamp", "MMM d HH:mm:ss", "MMM dd HH:mm:ss", "ISO8601" ]
+        }
+    }
+
+    # Convert application messages, e.g. from beaver
+    # An example message is "[2014-03-11 13:33:02,558] INFO    Starting queue consumer"
+    if [type] == "beaver" {
+        grok {
+            overwrite => [ "message" ]
+            match => {
+                "message" => "^\[?%{TIMESTAMP_ISO8601:timestamp}\] ?%{LOGLEVEL:syslog_severity} ?%{SPACE} %{GREEDYDATA:message}"
+            }
+            add_field => [ "program", "beaver" ]
+        }
+        mutate {
+            lowercase => [ "syslog_severity" ]
+        }
+        date {
+            # season to taste for your own syslog format(s)
+            match => [ "timestamp", "yyyy-MM-dd HH:mm:ss,SSS", "ISO8601" ]
+        }
+    }
+
+    # Redis
+    # Example: "[1632] 11 Mar 21:53:38 * Background saving terminated with success"
+    if [type] == "redis" {
+        grok {
+            overwrite => [ "message" ]
+            match => {
+                "message" => "%{REDISLOG} ?%{GREEDYDATA:message}"
+            }
+            add_field => [ "program", "%{type}" ]
+        }
+        date {
+            # season to taste for your own syslog format(s)
+            match => [ "timestamp", "d MMM HH:mm:ss", "dd MMM HH:mm:ss", "ISO8601" ]
+        }
+    }
+
+    # Apache Access
+    # VHost Example: "jenkins.tonic-solutions.com:80 172.17.0.150 - - [12/Mar/2014:11:24:07 +0600] "POST /job/fdw/buildHistory/ajax HTTP/1.1" 200 270 "http://jenkins.tonic-solutions.com/job/fdw/"; "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36"
+    # Non-VHost Example: "172.17.0.150 - - [12/Mar/2014:11:24:07 +0600] "POST /job/fdw/buildHistory/ajax HTTP/1.1" 200 270 "http://jenkins.tonic-solutions.com/job/fdw/"; "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36"
+    if [type] == "apache-access" {
+        grok {
+            match => [
+                "message", "%{NOTSPACE:vhost} %{COMBINEDAPACHELOG}",
+                "message", "%{COMBINEDAPACHELOG}"
+            ]
+            add_field => [ "program", "%{type}" ]
+        }
+        date {
+            # season to taste for your own syslog format(s)
+            match => [ "timestamp", "dd/MMM/YYYY:HH:mm:ss Z" ]
+        }
+        geoip {
+            add_tag => [ "geoip" ]
+            source => "clientip"
+        }
+        if [useragent] != "-" and [useragent] != "" {
+            useragent {
+                add_tag => [ "useragent" ]
+                source => "useragent"
+            }
+        }
+    }
+
+}
+
+output {
+
+    elasticsearch {
+        # Uncomment the following line and remove the embedded attribute
+        # if using standalone ElasticSearch
+        # host => "127.0.0.1"
+        embedded => true
+    }
+
+}

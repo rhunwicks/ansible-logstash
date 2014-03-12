@@ -1,4 +1,7 @@
-- include: debian.yml
-  when: ansible_os_family == "Debian"
-- include: centos.yml
-  when: ansible_os_family == "RedHat"
+- name: Install supervisord 
+  apt: pkg={{ item }} state=present
+  with_items:
+   - supervisor
+
+- name: Start supervisor service
+  service: name=supervisor state=started enabled=true

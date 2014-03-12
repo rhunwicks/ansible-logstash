@@ -1,1 +1,17 @@
-- include: central-logs.yml
+---
+# This playbook deploys the whole application stack to a central Logstash server
+# and configures clients to use Beaver to ship logs to it
+
+- hosts: logstash
+  sudo: yes
+  roles:
+    - { role: rsyslog-server, tags: ["rsyslog-server"], when: receive_rsyslog_tcp or receive_rsyslog_udp }
+    - { role: redis, tags: ["redis"] }
+    - { role: elasticsearch, tags: ["elasticsearch"], when: standalone_elasticsearch }
+    - { role: logstash, tags: ["logstash"] }
+
+- hosts: beaver
+  sudo: yes
+  roles:
+    - { role: supervisord, tags: ["supervisord"] }
+    - { role: beaver, tags: ["beaver"] }

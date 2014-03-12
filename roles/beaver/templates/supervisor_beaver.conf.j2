@@ -1,0 +1,5 @@
+[program:beaver]
+command=/usr/local/bin/beaver --configfile /etc/beaver/conf --confd-path /etc/beaver/conf.d --logfile /var/log/beaver.log
+startsecs=5
+redirect_stderr=true
+stdout_logfile=NONE

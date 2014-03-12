@@ -1,4 +1,8 @@
-- include: redis.yml
-  when: ansible_os_family == "Debian"
-- include: redis_centos.yml
-  when: ansible_os_family == "RedHat"
+- name: Install Redis
+  apt: pkg={{ item }} state=present
+  with_items:
+   - redis-server
+
+# Set vm.overcommit_memory to safeguard background saves - see http://redis.io/topics/faq
+- name: Set vm.overcommit_memory
+  sysctl: name=vm.overcommit_memory value=1 state=present reload=yes

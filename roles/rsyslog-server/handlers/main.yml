@@ -1,1 +1,2 @@
-- include: restartrsyslog.yml
+- name: restart rsyslog
+  service: name=rsyslog state=restarted enabled=yes

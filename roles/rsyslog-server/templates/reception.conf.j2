@@ -1,0 +1,11 @@
+{% if receive_rsyslog_udp %}
+# provides UDP syslog reception
+$ModLoad imudp
+$UDPServerRun 6514
+
+{% endif %}
+{% if receive_rsyslog_tcp %}
+# provides TCP syslog reception
+$ModLoad imtcp
+$InputTCPServerRun 6514
+{% endif %}

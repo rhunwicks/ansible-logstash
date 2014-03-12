@@ -1,4 +1,15 @@
-- include: debian.yml
-  when: ansible_os_family == "Debian"
-- include: centos.yml
-  when: ansible_os_family == "RedHat"
+- name: Install elasticsearch.org apt key
+  apt_key: url='http://packages.elasticsearch.org/GPG-KEY-elasticsearch' state=present
+
+- name: Install elasticsearch.org apt repository
+  apt_repository: repo='deb http://packages.elasticsearch.org/elasticsearch/0.90/debian stable main' state=present
+
+- name: Install elasticsearch
+  apt: pkg={{ item }} state=present
+  with_items:
+   - openjdk-7-jdk
+   - curl
+   - elasticsearch
+
+- name: Start Elasticsearch service
+  service: name=elasticsearch state=started enabled=true

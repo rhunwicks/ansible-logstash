@@ -1,0 +1,40 @@
+---
+# This playbook will install the Beaver client in order to ship logs to a central Logstash server
+
+- name: Install pip
+  apt: pkg=python-pip state=present
+
+- name: Install Beaver
+  pip: name=Beaver version=31
+
+- name: Check if the Logstash host is aleady known
+  shell: "[ -f /root/.ssh/known_hosts ] && cat /root/.ssh/known_hosts"
+  register: known_hosts
+
+- name: Add logstash to known_hosts
+  shell: ssh-keyscan {{ logstash_hostname }} >> /root/.ssh/known_hosts
+  when: known_hosts.stdout.find('{{ logstash_hostname }}') == -1
+
+- name: Create a 2048-bit SSH key for beaver
+  user: name=root generate_ssh_key=yes ssh_key_bits=2048 ssh_key_file=/etc/beaver/id_rsa ssh_key_comment=beaver@{{ ansible_hostname }}.{{ ansible_domain }}
+  register: createsshkey
+
+- name: Set permissions on SSH key
+  file: name=/etc/beaver/id_rsa mode=0600
+
+- name: Copy the SSH key to logstash
+  command: ssh-copy-id -i /etc/beaver/id_rsa beaver@{{ logstash_hostname }}
+  when: createsshkey.changed
+
+- name: Create Beaver configuration directory
+  file: path="/etc/beaver/conf.d" owner=root group=root mode=0755 state=directory
+
+- name: Create Beaver configuration
+  template: src=beaver.conf.j2 dest="/etc/beaver/conf" owner=root group=root mode=0644
+  notify:
+   - reload supervisor
+
+- name: Create Beaver configuration for supervisor
+  template: src=supervisor_beaver.conf.j2 dest="/etc/supervisor/conf.d/beaver.conf" owner=root group=root mode=0644
+  notify:
+   - reload supervisor

@@ -1,2 +1,6 @@
-- include: supervisor_deb.yml
-- include: supervisor_cent.yml
+- name: reload supervisor
+  shell: supervisorctl reload
+  notify: ensure supervisor service
+
+- name: ensure supervisor service
+  action: service name=supervisor state=started

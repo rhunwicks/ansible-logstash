@@ -1,0 +1,20 @@
+[beaver]
+logstash_version: 1
+sincedb_path: /etc/beaver/since.db
+transport: redis
+redis_url: redis://localhost:6380/0
+redis_namespace: logstash
+ssh_key_file: /etc/beaver/id_rsa
+ssh_tunnel: beaver@{{ logstash_hostname }}
+ssh_tunnel_port: 6380
+ssh_remote_host: 127.0.0.1
+ssh_remote_port: 6379
+
+[/var/log/**/*log]
+type: syslog
+tags: sys,beaver
+exclude: (beaver)
+
+[/var/log/beaver.log]
+type: beaver
+tags: sys,beaver

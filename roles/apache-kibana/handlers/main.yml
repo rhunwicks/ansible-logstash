@@ -1,2 +1,0 @@
-- include: restart_apache.yml
-- include: restart_httpd.yml

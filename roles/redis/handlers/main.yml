@@ -1,2 +1,2 @@
-- include: restartredis.yml
-- include: restartredis_centos.yml
+- name: restart redis
+  service: name=redis-server state=restarted

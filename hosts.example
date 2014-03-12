@@ -1,0 +1,14 @@
+[logstash]
+logstash.example.com
+
+[logstash:vars]
+standalone_elasticsearch=false
+receive_rsyslog_tcp=false
+receive_rsyslog_udp=false
+
+[beaver]
+client1.example.com
+client2.example.com
+
+[beaver:vars]
+logstash_hostname=logstash.example.com
